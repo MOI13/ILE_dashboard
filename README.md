@@ -10,13 +10,13 @@
 - Identify the preterm infant subgroups most in need of RBC transfusions.
 - Assess how RBC transfusions affect the health outcomes of preterm infants.
 
-- For sepecifc, we aim to address
-
+- For specific, we aim to address:
   - How are baby and mother demographic characteristics associated with infant red blood cell transfusion? 
   - How does the infant’s hemoglobin level change with red blood cell transfusion?
   - How does the infant’s body weight change with red blood cell transfusion?
   - Are all those associations differ by enrolled sites? 
 
+## Source Code
 `03_shiny.Rmd`
 
 - source code for the shiny dashboard

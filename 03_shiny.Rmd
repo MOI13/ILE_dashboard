@@ -117,6 +117,15 @@ tr2 %<>% rename(
 )
 ```
 
+# Dataset Description 
+
+- The dataset used in the project is confidential.
+
+- We included 284 preterm infants in the dataset, with 832 transfusion records and 3334 hemoglobin level measurements. 
+
+- The data was collected with a secondary, prospective, multicenter observational cohort study for preterm infants who were born in 3 hospitals between 2017-01-30 and 2024-06-09. 
+
+
 # RBC Transfusion Needs
 
 ## Column {.sidebar data-width="300"}
@@ -139,15 +148,17 @@ selectInput("center", h4("Select Center:"),
               selected = "All")
 ```
 
+
 ## Column {data-width="350"}
+- **My GitHub Repo**
+  - https://github.com/MOI13/ILE_dashboard
 
-### Key Takeaways:
+- **Project Objective 1**
+  - Identify the preterm infant subgroups most in need of RBC transfusions.
 
--   How baby and mother demographic characteristics are associated with preterm infant red blood cell transfusion amount?
-
--   How RBC transfusion amount distribution differentiate in different centers?
-
--   Which subgroup has the highest transfusion need?
+- **Key Takeaways**
+  - Infants born to minority mothers, those covered by Medicaid insurance, female infants, infants from multiple births (twins/triplets), and those with a gestational age between 32 and 37 weeks tend to receive the highest volume of RBC transfusions per transfusion event.
+  - This pattern remains consistent across different centers.
 
 ```{r}
 renderPlotly({
@@ -234,13 +245,18 @@ selectInput("center_2", h4("Select Center:"),
               selected = "All")
 ```
 
+
 ## Column {data-width="350"}
+- **My GitHub Repo**
+  - https://github.com/MOI13/ILE_dashboard
 
-### Key Takeaways:
+- **Project Objective 2**
+  - Assess how RBC transfusions affect the health outcomes of preterm infants.
 
--   How does the infant’s hemoglobin level change with red blood cell transfusion, is there a particular trend at the population level?
+- **Key Takeaways**
+  - Overall, preterm infants’ body weight tends to increase with each transfusion event over time. Infants born at Grady and Northside hospitals’ NICUs experience the most significant weight gain.
+  - In general, preterm infants’ hemoglobin levels decrease with each transfusion event and stabilize around 3 weeks after birth. Infants born at Emory have the highest baseline hemoglobin levels, while those born at Grady have the lowest baseline levels on average, indicating poorer health conditions at birth. However, after multiple RBC transfusion events, hemoglobin levels in all infants stabilize and remain relatively similar after 3 weeks.
 
--   How does the infant’s body weight change with red blood cell transfusion, is there a particular trend at the population level?
 
 ```{r}
 renderPlotly({
