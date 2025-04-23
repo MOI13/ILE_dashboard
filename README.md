@@ -20,4 +20,5 @@
 `03_shiny.Rmd`
 
 - source code for the shiny dashboard
-- shiny dashboard can be accessed here: 
+- shiny dashboard can be accessed here: https://shirley-song.shinyapps.io/rbc_transfusion_shiny/
+
