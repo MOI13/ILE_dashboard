@@ -1,0 +1,281 @@
+---
+title: "DATA 555 Interactive Visulizations"
+author: "Xintian Song"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, message=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(shiny)
+library(plotly)
+library(DT)
+# library(manipulate)
+
+library(tidyverse)
+library(magrittr)
+library(here)
+```
+
+```{r, include=FALSE}
+# knitr::opts_knit$set(root.dir = here::here())
+# setwd(knitr::opts_knit$get("root.dir"))
+```
+
+```{r, include=FALSE}
+options(shiny.sanitize.errors = FALSE)
+
+# shiny::addResourcePath("data", rprojroot::find_rstudio_root_file("final project", "data"))
+
+baby <- readRDS("data/baby.rds")
+mother <- readRDS("data/mother.rds")
+tr <- readRDS("data/tr.rds")
+hb <- readRDS("data/hb.rds")
+
+# DATA_FOLDER <- "final project/data"
+# baby <- readRDS(here::here("data", "baby.rds"))
+# mother <- readRDS(here::here("data",  "mother.rds"))
+# tr <- readRDS(here::here("data",  "tr.rds"))
+# hb <- readRDS(here::here("data", "hb.rds"))
+```
+
+```{r}
+baby2 <- baby %>%
+  mutate(center = case_when(
+    startsWith(as.character(id), "11") ~ "Emory",
+    startsWith(as.character(id), "12") ~ "Grady",
+    startsWith(as.character(id), "13") ~ "Northside",
+    startsWith(as.character(id), "14") ~ "Hopkins",
+    TRUE ~ "Other"  
+  )) %>%
+  select(id, center, LBWIDOB, gender, race, gestagewk, gestageday, birthweight002, 
+         apgar1min, apgar5min) %>%
+  rename(baby_id = id, birthweight=birthweight002) %>%
+  mutate(gestageweek = (7*gestagewk + gestageday)/7 ) %>%
+  select(-c(gestagewk, gestageday))
+
+tr2 <- tr %>%
+  left_join(baby2, by = "baby_id") %>%
+  left_join(mother, by = "baby_id") %>%
+  select(-moc_id) %>%
+  
+  mutate(gestageweek = case_when(
+    is.na(gestageweek) ~ NA_character_,
+    gestageweek < 28 ~ "Extreme Preterm",    
+    gestageweek < 32 ~ "Very Preterm",
+    TRUE ~ "Moderate Preterm"
+  )) %>%
+  
+  mutate(MOC_race003 = dplyr::recode(MOC_race003,
+    `1` = "Black",
+    `2` = "American Indian",
+    `3` = "White",
+    `4` = "Native Hawaiian or Other Pacific Islander",
+    `5` = "Asian",
+    `6` = "More than one race",
+    `7` = "Other",
+    `99` = NA_character_
+  )) %>%
+  
+  mutate(race = dplyr::recode(race,
+    `1` = "Black",
+    `2` = "American Indian",
+    `3` = "White",
+    `4` = "Native Hawaiian or Other Pacific Islander",
+    `5` = "Asian",
+    `6` = "More than one race",
+    `7` = "Other",
+    `99` = NA_character_
+  )) %>%
+  
+  
+  mutate(
+    MultipleBirth004 = ifelse(MultipleBirth004 == 99, NA, MultipleBirth004),
+    RHgroup004 = ifelse(RHgroup004 == 99, NA, RHgroup004)
+  ) %>%
+  
+  mutate(gender = dplyr::recode(gender,
+    `1` = "Female",
+    `2` = "Male"
+  )) %>%
+  
+  mutate(across(-c(1:5), as.factor))
+
+
+tr2 %<>% rename(
+  `Mother Race Group` = MOC_race003,
+  `Mother Insurance Group` = Insurance003,
+  `Mother Blood Rh Group` = RHgroup004,
+  `Infant Gender Group` = gender,
+  `Infant Race Group` = race, 
+  `Does Infant belong to Multiple Birth?` = MultipleBirth004,
+  `Infant Gestational age` = gestageweek
+)
+```
+
+# RBC Transfusion Needs
+
+## Column {.sidebar data-width="300"}
+
+```{r}
+# x_choice <- menu(x_options, title = "Select an X-axis variable:")
+# x_axis <- x_options[x_choice]
+
+x_options <- c("Mother Race Group", "Mother Insurance Group", "Mother Blood Rh Group", 
+               "Infant Gender Group", "Infant Race Group", "Does Infant belong to Multiple Birth?",
+               "Infant Gestational age")
+
+selectInput(inputId = "x_axis", 
+            label = h4("Select X-Axis:"), 
+            choices = x_options, selected = "MOC_race003")
+
+
+selectInput("center", h4("Select Center:"), 
+              choices = c("All", "Emory", "Grady", "Northside", "Hopkins"),
+              selected = "All")
+```
+
+## Column {data-width="350"}
+
+### Key Takeaways:
+
+-   How baby and mother demographic characteristics are associated with preterm infant red blood cell transfusion amount?
+
+-   How RBC transfusion amount distribution differentiate in different centers?
+
+-   Which subgroup has the highest transfusion need?
+
+```{r}
+renderPlotly({
+  
+  tr3 <- if (input$center == "All") {
+    tr2
+  } else {
+    tr2 %>% filter(center == input$center)
+  }
+  
+  x_axis <- input$x_axis
+
+  plot_data <- tr3 %>%
+    select(all_of(x_axis), rbcVolumeTransfused031, baby_id) %>%
+    drop_na() %>%
+  mutate(!!x_axis := case_when(
+    .data[[x_axis]] == 1 ~ "Yes",
+    .data[[x_axis]] == 0 ~ "No",
+    TRUE ~ as.character(.data[[x_axis]])
+  )) %>%
+    group_by(!!sym(x_axis)) %>%
+    mutate(medianrbc = median(rbcVolumeTransfused031, na.rm = TRUE)) %>%
+    ungroup() %>%
+    mutate(fct_in = fct_reorder(as.factor(.data[[x_axis]]), medianrbc, .desc = TRUE))
+  
+
+  p <- ggplot(plot_data, aes(x = fct_in, y = rbcVolumeTransfused031)) +  
+    geom_boxplot(outlier.shape = NA, fill = "lightblue", alpha = 0.5) +
+    geom_jitter(aes(text = paste("\n", x_axis, ":", .data[[x_axis]], 
+                                 "\nInfant ID:", baby_id,
+                                 "\nRed Blood Cell Volume:", rbcVolumeTransfused031)), 
+                width = 0.2, color = "darkred", alpha = 0.6) +
+    labs(x = x_axis, y = "RBC Transfusion Amount (mL)", 
+         title = "Red Blood Cell Transfusion Distribution") +
+    theme_bw() +
+     theme(panel.grid.major = element_blank(),  
+          panel.grid.minor = element_blank()) 
+
+  ggplotly(p, tooltip = "text") %>% 
+    layout(
+      height = 600,  
+      annotations = list(
+        list(
+          x = 0.16, y = 1, 
+          text = "Gestational Age Classification:\nExtreme Preterm: <28 weeks\nVery Preterm: 28-31 weeks\nModerate Preterm: 32+ weeks", 
+          showarrow = FALSE, xref = 'paper', yref = 'paper', 
+          xanchor = 'right', yanchor = 'auto', xshift = 0, yshift = 0, 
+          font = list(size = 11, color = "grey")
+        )
+      )
+    )
+})
+```
+
+# Hemoglobin Level & Body Weight Trend
+
+```{r}
+tr4 <- tr2 %>%
+  mutate(tran_day = as.numeric(interval(as.Date(LBWIDOB), as.Date(DateTransfusion031)) / days(1))) %>%
+  left_join(hb %>%
+              arrange(baby_id, infant_day) %>%  
+              group_by(baby_id, infant_day) %>%
+              slice(1) %>%
+              ungroup() %>%
+              dplyr::select(baby_id, recent_hb = HB, infant_day), 
+          join_by(baby_id, closest(tran_day >= infant_day))) %>%
+  rename(`Body Weight(g)` = BodyWeight031,
+         `Hemoglobin Level(g/dl)` = recent_hb)
+
+```
+
+## Column {.sidebar data-width="300"}
+
+```{r}
+x_options <- c("Body Weight(g)", "Hemoglobin Level(g/dl)")
+
+selectInput(inputId = "x_axis_2", 
+            label = h4("Select X-Axis:"), 
+            choices = x_options, selected = "Body Weight(g)")
+
+
+selectInput("center_2", h4("Select Center:"), 
+              choices = c("All", "Emory", "Grady", "Northside", "Hopkins"),
+              selected = "All")
+```
+
+## Column {data-width="350"}
+
+### Key Takeaways:
+
+-   How does the infant’s hemoglobin level change with red blood cell transfusion, is there a particular trend at the population level?
+
+-   How does the infant’s body weight change with red blood cell transfusion, is there a particular trend at the population level?
+
+```{r}
+renderPlotly({
+  
+  tr5 <- if (input$center_2 == "All") {
+    tr4
+  } else {
+    tr4 %>% filter(center == input$center_2)
+  }
+  
+  x_axis <- input$x_axis_2
+
+  plot_data <- tr5 %>%
+    select(all_of(x_axis), tran_day, baby_id) %>%
+    drop_na() %>%
+    mutate(across(everything(), as.numeric))
+  
+
+  p <- ggplot(plot_data, aes(x = tran_day, y = .data[[x_axis]])) +  
+    geom_jitter(aes(text = paste("\nInfant ID:", baby_id,
+                               "\nDay Since Birth:", tran_day,
+                               "\n", x_axis, ":", .data[[x_axis]])),   
+              width = 0.2, alpha = 0.5, color = "darkblue") +  
+    geom_smooth(method = "loess", color = "indianred2", se = FALSE) +  
+    labs(
+      x = "Days Since Birth to Transfusion",
+      y = x_axis,
+      title = paste("Population-Level Trend for", x_axis)
+    ) + 
+    theme_bw() + 
+    theme(panel.grid = element_blank())
+  
+    ggplotly(p, tooltip = "text") %>% 
+    layout(
+      height = 600)
+})
+
+```
